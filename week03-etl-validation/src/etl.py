@@ -53,8 +53,79 @@ def run_etl(config):
 
     Return the validation_report dict as well as writing it to disk.
     """
-    # TODO: implement
-    raise NotImplementedError
+    """Run the ETL pipeline: extract, validate, transform, and load."""
+
+    # 1. Extract
+    rows = extract(config["input_path"])
+
+    # 2. Validate
+    expectations = build_expectation_suite()
+
+    all_violations = []
+
+    for expectation_func, kwargs in expectations:
+        violations = expectation_func(rows, **kwargs)
+        all_violations.extend(violations)
+
+    # 3. Group violations by row
+    violated_row_indices = {
+        violation.row_index
+        for violation in all_violations
+    }
+
+    # 4. Transform
+    clean_rows = []
+    quarantined_rows = []
+
+    for index, row in enumerate(rows):
+        if index in violated_row_indices:
+            quarantined_rows.append(row)
+        else:
+            clean_rows.append(row)
+
+    # 5. Build validation report
+    report = {
+        "total_rows": len(rows),
+        "clean_rows": len(clean_rows),
+        "quarantined_rows": len(quarantined_rows),
+        "expectations": []
+    }
+
+    for expectation_func, kwargs in expectations:
+        expectation_name = expectation_func.__name__
+
+        violations = [
+            violation
+            for violation in all_violations
+            if violation.expectation == expectation_name
+        ]
+
+        report["expectations"].append({
+            "expectation": expectation_name,
+            "column": kwargs["column"],
+            "n_violations": len(violations),
+            "row_indices": [v.row_index for v in violations]
+        })
+
+    # 6. Load clean transactions
+    fieldnames = list(rows[0].keys())
+
+    with open(config["clean_output_path"], "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(clean_rows)
+
+    # 7. Load quarantined transactions
+    with open(config["quarantine_output_path"], "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(quarantined_rows)
+
+    # 8. Load validation report
+    with open(config["report_output_path"], "w") as f:
+        json.dump(report, f, indent=2)
+
+    return report
 
 
 def main():
