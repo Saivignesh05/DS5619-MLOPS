@@ -24,9 +24,22 @@ def _is_null(value):
 
 def expect_column_not_null(rows, column):
     """Return a Violation for every row where rows[i][column] is null/empty."""
-    # TODO: implement
-    
-    raise NotImplementedError
+    violations = []
+
+    for i, row in enumerate(rows):
+        value = row.get(column)
+
+        if _is_null(value):
+            violations.append(
+                Violation(
+                    expectation="expect_column_not_null",
+                    column=column,
+                    row_index=i,
+                    detail=f"{column} is null or empty"
+                )
+            )
+
+    return violations
 
 
 def expect_column_positive(rows, column):
@@ -34,22 +47,79 @@ def expect_column_positive(rows, column):
     is not strictly greater than 0. If the value can't be cast to float at
     all, that also counts as a violation (detail should say so).
     """
-    # TODO: implement
-    raise NotImplementedError
+    violations = []
+
+    for i, row in enumerate(rows):
+        value = row.get(column)
+
+        try:
+            number = float(value)
+
+            if number <= 0:
+                violations.append(
+                    Violation(
+                        expectation="expect_column_positive",
+                        column=column,
+                        row_index=i,
+                        detail=f"{column} must be positive, got {value}"
+                    )
+                )
+
+        except (TypeError, ValueError):
+            violations.append(
+                Violation(
+                    expectation="expect_column_positive",
+                    column=column,
+                    row_index=i,
+                    detail=f"{column} could not be converted to a number: {value}"
+                )
+            )
+
+    return violations
 
 
 def expect_column_in_set(rows, column, allowed_values):
     """Return a Violation for every row where rows[i][column] is not a member
     of allowed_values (a set or list you're given).
     """
-    # TODO: implement
-    raise NotImplementedError
+    violations = []
 
+    for i, row in enumerate(rows):
+        value = row.get(column)
+
+        if value not in allowed_values:
+            violations.append(
+                Violation(
+                    expectation="expect_column_in_set",
+                    column=column,
+                    row_index=i,
+                    detail=f"{column} has invalid value: {value}"
+                )
+            )
+
+    return violations
 
 def expect_column_unique(rows, column):
     """Return a Violation for every row AFTER THE FIRST that repeats a value
     already seen in `column`. (i.e. if three rows share a value, rows 2 and 3
     are violations; row 1 is not.)
     """
-    # TODO: implement
-    raise NotImplementedError
+    violations = []
+    seen = set()
+
+    for i, row in enumerate(rows):
+        value = row.get(column)
+
+        if value in seen:
+            violations.append(
+                Violation(
+                    expectation="expect_column_unique",
+                    column=column,
+                    row_index=i,
+                    detail=f"{column} contains duplicate value: {value}"
+                )
+            )
+        else:
+            seen.add(value)
+
+    return violations
