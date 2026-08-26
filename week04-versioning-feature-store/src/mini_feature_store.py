@@ -77,8 +77,42 @@ def snapshot_raw_version(input_path, registry_dir):
            CSV header), row_count, created_at (use _now()).
       5. Return the version_id (str).
     """
-    # TODO: implement
-    raise NotImplementedError
+    file_hash = content_hash(input_path)
+    raw_versions_dir = os.path.join(registry_dir, "raw_versions")
+
+    # Check for an existing identical snapshot.
+    if os.path.isdir(raw_versions_dir):
+        for version_id in os.listdir(raw_versions_dir):
+            manifest_path = os.path.join(
+                raw_versions_dir, version_id, "manifest.json"
+            )
+            if os.path.isfile(manifest_path):
+                with open(manifest_path) as f:
+                    manifest = json.load(f)
+
+                if manifest.get("content_hash") == file_hash:
+                    return manifest["version_id"]
+
+    # Create a new version.
+    version_id = _next_version_id(raw_versions_dir)
+    version_dir = os.path.join(raw_versions_dir, version_id)
+    os.makedirs(version_dir, exist_ok=False)
+
+    rows = _read_csv_rows(input_path)
+
+    manifest = {
+        "version_id": version_id,
+        "source_path": input_path,
+        "content_hash": file_hash,
+        "columns": list(rows[0].keys()) if rows else [],
+        "row_count": len(rows),
+        "created_at": _now(),
+    }
+
+    with open(os.path.join(version_dir, "manifest.json"), "w") as f:
+        json.dump(manifest, f, indent=2)
+
+    return version_id
 
 
 # ---------------------------------------------------------------------------
@@ -110,8 +144,54 @@ def build_features(rows):
 
     Return: list of feature row dicts, one per card_id, in any order.
     """
-    # TODO: implement
-    raise NotImplementedError
+    cards = {}
+
+    for row in rows:
+        card_id = row["card_id"]
+
+        if card_id not in cards:
+            cards[card_id] = {
+                "amounts": [],
+                "txn_count": 0,
+                "card_present_count": 0,
+                "event_time": row["timestamp"],
+            }
+
+        # Detect v2 and convert cents to normal currency units.
+        if "amount_minor_units" in row:
+            amount = int(row["amount_minor_units"]) / 100
+        else:
+            amount = float(row["amount"])
+
+        card = cards[card_id]
+        card["amounts"].append(amount)
+        card["txn_count"] += 1
+
+        if row["card_present"] == "True":
+            card["card_present_count"] += 1
+
+        if row["timestamp"] > card["event_time"]:
+            card["event_time"] = row["timestamp"]
+
+    feature_rows = []
+
+    for card_id, card in cards.items():
+        feature_rows.append({
+            "card_id": card_id,
+            "txn_count": card["txn_count"],
+            "avg_amount": round(
+                sum(card["amounts"]) / card["txn_count"], 2
+            ),
+            "max_amount": round(
+                max(card["amounts"]), 2
+            ),
+            "pct_card_present": round(
+                card["card_present_count"] / card["txn_count"], 3
+            ),
+            "event_time": card["event_time"],
+        })
+
+    return feature_rows
 
 
 # ---------------------------------------------------------------------------
@@ -140,8 +220,35 @@ def register_feature_group(name, feature_rows, source_version_id, registry_dir, 
            created_at (use _now()).
       5. Return fg_version_id (str).
     """
-    # TODO: implement
-    raise NotImplementedError
+    feature_group_dir = os.path.join(
+        registry_dir, "feature_groups", name
+    )
+
+    fg_version_id = _next_version_id(feature_group_dir)
+
+    version_dir = os.path.join(
+        feature_group_dir, fg_version_id
+    )
+
+    os.makedirs(version_dir, exist_ok=False)
+
+    with open(os.path.join(version_dir, "features.json"), "w") as f:
+        json.dump(feature_rows, f, indent=2)
+
+    manifest = {
+        "feature_group_version_id": fg_version_id,
+        "name": name,
+        "source_raw_version_id": source_version_id,
+        "transform_version": transform_version,
+        "schema": sorted(feature_rows[0].keys()) if feature_rows else [],
+        "row_count": len(feature_rows),
+        "created_at": _now(),
+    }
+
+    with open(os.path.join(version_dir, "manifest.json"), "w") as f:
+        json.dump(manifest, f, indent=2)
+
+    return fg_version_id
 
 
 # ---------------------------------------------------------------------------
@@ -162,5 +269,30 @@ def get_lineage(name, fg_version_id, registry_dir):
     FileNotFoundError (the default behavior of open() on a missing file is
     fine — don't catch it) if either manifest is missing.
     """
-    # TODO: implement
-    raise NotImplementedError
+    feature_manifest_path = os.path.join(
+        registry_dir,
+        "feature_groups",
+        name,
+        fg_version_id,
+        "manifest.json",
+    )
+
+    with open(feature_manifest_path) as f:
+        feature_manifest = json.load(f)
+
+    raw_version_id = feature_manifest["source_raw_version_id"]
+
+    raw_manifest_path = os.path.join(
+        registry_dir,
+        "raw_versions",
+        raw_version_id,
+        "manifest.json",
+    )
+
+    with open(raw_manifest_path) as f:
+        raw_manifest = json.load(f)
+
+    return {
+        "feature_group": feature_manifest,
+        "raw_source": raw_manifest,
+    }
