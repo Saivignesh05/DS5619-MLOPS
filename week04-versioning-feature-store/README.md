@@ -111,3 +111,12 @@ git push origin main --tags
 Source: this lab operationalizes the Data Versioning, Feature Store (FTI
 architecture, feature groups), and Data Lineage content from the Week 4
 lecture deck.
+
+## Running the project
+
+After completing the four functions, run:
+
+python src/run_pipeline.py
+pytest tests/ -q
+
+The pipeline generates the `.feature_store/` directory and `lineage_report.json`.
