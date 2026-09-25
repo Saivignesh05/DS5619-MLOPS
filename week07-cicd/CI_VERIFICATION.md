@@ -9,17 +9,15 @@ real GitHub Actions runner, not just locally.
 Paste the URL of a successful run of all three jobs (Actions tab -> click
 the run -> copy the URL):
 
-```
-TODO
-```
+https://github.com/Saivignesh05/DS5619-MLOPS/actions/runs/36100476559
 
 ## Job summary
 
 For each job, note pass/fail and how long it took:
 
-- `lint`: TODO
-- `unit-test`: TODO
-- `integration-test`: TODO
+- `lint`: PASS  9s
+- `unit-test`: PASS 8s
+- `integration-test`: PASS 16s
 
 ## What broke on the way there (optional but useful)
 
@@ -27,3 +25,6 @@ If any job failed before you got it working, briefly note what the failure
 was and what fixed it. (Not required, but if `integration-test` gave you
 trouble, this is worth 2 sentences for your own future reference — Week 9's
 lab also builds on debugging CI-style failures.)
+
+the errors i received was related to root folder that github works and the lab7 folder that actually has the ci.yml,
+i solved it by sopying the ci.yml and changing default location to week07-cicd which is inside the root folder of github hence solved the path poblem and passed all test cases
