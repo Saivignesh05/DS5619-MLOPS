@@ -18,4 +18,4 @@ both have the same accuracy (98.33%) and the same weights, but pruned_dense_fp32
 <!-- Try editing PRUNE_SPARSITY in src/run_pipeline.py to 0.95 and re-run —
      what happens to accuracy, and why does that make sense given only 40
      of the 256 weights are actually informative? -->
-
+when sparsity is set to 0.95, accuracy drops sharply from 98.33% to 79.00%. this makes sense because 95% sparsity zeroes out 243 weights out of 256, leaving only 13 weights alive. since there are only 216 noise weights, pruning 243 weights wipes out all noise plus 27 of the 40 informative weights, so the model loses most of its useful signal and falls off an accuracy cliff.
